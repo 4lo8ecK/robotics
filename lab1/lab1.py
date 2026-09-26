@@ -1,8 +1,15 @@
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 
+# промежуток для рандомных чисел векторов сдвига
+SHIFT_MAX: int = 5
+SHIFT_MIN: int = -SHIFT_MAX
+SEED = 0
+
 np.set_printoptions(precision=4, suppress=True)
-rng = np.random.default_rng(0)
+rng = np.random.default_rng(seed=SEED)
 
 def rotx(a):
 	return np.asarray(
@@ -51,9 +58,9 @@ class Transform:
 		return Transform(self.M @ other.M)
 
 	def inverse(self):
-		return Transform.from_Rt(np.transpose(self.R), -np.dot(np.transpose(self.R), self.t))
+		return Transform.from_Rt(self.R.T, -self.R.T @ self.t)
 
-	def apply_point(self, p):
+	def apply_point(self, p=None):
 		p = np.zeros(3) if p is None else np.asarray(p)
 		if p.ndim == 1: return (self.M @ np.append(p, 1.0))[:3]
 		elif p.ndim == 2:
@@ -61,7 +68,7 @@ class Transform:
 			return ((self.M @ points.T).T)[:, :3]
 		raise NotImplementedError()
 
-	def apply_vector(self, v):
+	def apply_vector(self, v=None):
 		v = np.zeros(3) if v is None else np.asarray(v)
 		if v.ndim == 1: return (self.M @ np.append(v, 0.0))[:3]
 		elif  v.ndim == 2:
@@ -72,6 +79,7 @@ class Transform:
 	def __repr__(self):
 		return 'Transform(\n%s)' % np.array2string(self.M, precision=4, suppress_small=True)
 
+#region TASK 1
 
 def task_1():
 	T = Transform.from_Rt(rotz(np.pi / 6) @ rotx(np.pi / 4), [1.0, -2.0, 0.5])
@@ -79,6 +87,10 @@ def task_1():
 	print('||T @ T^-1 - I|| = %.3e' % resid)
 	assert resid < 1e-12, 'обращение реализовано неверно'
 	print('OK')
+
+#endregion
+
+#region TASK 2
 
 def task_2():
 	T = Transform.from_Rt(R=None, t = (1,2,3))
@@ -89,4 +101,83 @@ def task_2():
 	print(f"apply_vector: {T.apply_vector(shift_1)}")	# apply_vector:  [1. 2. 3. 0.]
 	print(f"apply_vector:\n{T.apply_vector(shift_2)}")	# apply_vector:  [[9. 8. 7.], [8. 7. 6.], [7. 6. 5.]]
 
-task_2()
+#endregion
+
+#region TASK 3
+
+def random_transform(rng):
+	a = rng.uniform(-np.pi, np.pi, size=3)
+	R = rotx(a[0]) @ roty(a[1]) @ rotz(a[2])
+	t = rng.uniform(SHIFT_MIN, SHIFT_MAX, size=3)
+	return Transform.from_Rt(R, t)
+
+def task_3():
+	A = random_transform(rng)
+	B = random_transform(rng)
+	C = random_transform(rng)
+
+	assoc = np.linalg.norm(((A @ B) @ C).M - (A @ (B @ C)).M)
+	print("Ассоциативность\t\t||(AB)C - A(BC)||\t= %.3e" % assoc)
+
+	necom = np.linalg.norm((A @ B).M - (B @ A).M)
+	print("некоммутативность\t||AB - BA||\t\t= %.3f" % necom)
+
+	R = (A @ B).R
+	a = np.linalg.norm(R.T @ R - np.eye(3))
+	det_R = np.linalg.det(R)
+	print("||R^T R - I||\t= %.3e\ndet(R)\t\t= %.3f" % (a, det_R))	
+
+#endregion
+
+#region TASK 4
+
+PARENT = {'base': 'world', 'table': 'world', 'shoulder': 'base', 'elbow': 'shoulder',
+		  'wrist': 'elbow', 'camera': 'wrist', 'object': 'table'}
+
+LOCAL = {
+	'base':     Transform.from_Rt(rotz(0.30), [0.00, 0.00, 0.20]),
+	'table':    Transform.from_Rt(np.eye(3),  [1.20, 0.40, 0.00]),
+	'shoulder': Transform.from_Rt(roty(0.45), [0.00, 0.00, 0.35]),
+	'elbow':    Transform.from_Rt(roty(-0.80), [0.40, 0.00, 0.00]),
+	'wrist':    Transform.from_Rt(rotx(0.60), [0.35, 0.00, 0.00]),
+	'camera':   Transform.from_Rt(rotz(-np.pi / 2) @ roty(np.pi / 2), [0.05, 0.00, 0.10]),
+	'object':   Transform.from_Rt(rotz(1.10), [0.10, -0.15, 0.75]),
+}
+
+def chain_to_root(frame):
+	chain = [frame]
+	while frame in PARENT:
+		frame = PARENT[frame]
+		chain += [frame]
+	return chain
+
+def world_from(frame):
+	if frame not in PARENT:
+		return Transform()
+	return world_from(PARENT[frame]) @ LOCAL[frame]
+
+def lookup(target, source):
+	return world_from(target).inverse() @ world_from(source)
+
+def task_4():
+	cam_obj = lookup('camera', 'object').apply_point()
+	print('Положение object в СК camera',  cam_obj)
+
+	pass
+
+#endregion
+
+
+
+
+
+# int main(int argc, char** argv) ;P
+if __name__ == '__main__':
+	if len(sys.argv) == 2:
+		tasks = [task_1, task_2, task_3, task_4]
+		try:
+			id = int(sys.argv[1])
+			print('\x1b[1;33mЗадание %d\x1b[0m' % id)
+			tasks[id - 1]()
+		except:
+			sys.exit(0)
