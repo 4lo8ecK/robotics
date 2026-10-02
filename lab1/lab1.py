@@ -193,12 +193,6 @@ def task_5():
 
 #region TASK 6
 
-# def random_transform(rng, rot_scale=1e-3, t_scale=1e-3):
-#     angles = rng.normal(scale=rot_scale, size=3)
-#     R = rotz(angles[0]) @ roty(angles[1]) @ rotx(angles[2])
-#     t = rng.normal(scale=t_scale, size=3)
-#     return Transform.from_Rt(R, t)
-
 def task_6():
 	Tstep = random_transform(rng)
 	Tstep_inv = Tstep.inverse()
@@ -253,11 +247,11 @@ def task_7():
 	R_fixed = orthogonalize(R_noisy)
 
 	print('до исправления:')
-	print('  ошибка относительно R_init:\t', np.linalg.norm(R_noisy - R_init))
-	print('  неортогональность:\t\t', orth_error(R_noisy))
+	print('\tошибка относительно R_init:\t', np.linalg.norm(R_noisy - R_init))
+	print('\tнеортогональность:\t\t', orth_error(R_noisy))
 	print('после исправления:')
-	print('  ошибка относительно R_init:\t', np.linalg.norm(R_fixed - R_init))
-	print('  неортогональность:\t\t', orth_error(R_fixed))
+	print('\tошибка относительно R_init:\t', np.linalg.norm(R_fixed - R_init))
+	print('\tнеортогональность:\t\t', orth_error(R_fixed))
 
 #endregion
 
