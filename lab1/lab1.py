@@ -163,21 +163,118 @@ def task_4():
 	cam_obj = lookup('camera', 'object').apply_point()
 	print('Положение object в СК camera',  cam_obj)
 
-	pass
+#endregion
+
+#region TASK 5
+
+def task_5():
+	axes_length = 0.05
+	axis_colors = ['r', 'g', 'b']   # x, y, z
+
+	fig = plt.figure(figsize=(8, 8))
+	ax = fig.add_subplot(111, projection='3d')
+
+	frames = list(LOCAL.keys()) + ['world']
+	for frame in frames:
+		Twf = world_from(frame)
+		origin = Twf.apply_point([0.0, 0.0, 0.0])
+		axes_local = np.eye(3) * axes_length 
+		for i in range(3):
+			tip = Twf.apply_point(axes_local[i])
+			ax.plot(*zip(origin, tip), color=axis_colors[i], linewidth=2)
+		ax.text(*origin, frame, fontsize=9)
+
+	ax.set_xlabel('x'); ax.set_ylabel('y'); ax.set_zlabel('z')
+	ax.set_box_aspect([1, 1, 1])
+	plt.title('Дерево систем координат')
+	plt.show()
 
 #endregion
 
+#region TASK 6
 
+# def random_transform(rng, rot_scale=1e-3, t_scale=1e-3):
+#     angles = rng.normal(scale=rot_scale, size=3)
+#     R = rotz(angles[0]) @ roty(angles[1]) @ rotx(angles[2])
+#     t = rng.normal(scale=t_scale, size=3)
+#     return Transform.from_Rt(R, t)
 
+def task_6():
+	Tstep = random_transform(rng)
+	Tstep_inv = Tstep.inverse()
 
+	Ns = np.unique(np.logspace(1, 5, 25).astype(int))
+	err_T = []      # ||T_acc - I||
+	err_R = []      # ||R^T R - I||
+
+	for N in Ns:
+		Tacc = Transform()               # тождественное
+		for _ in range(N):
+			Tacc = Tacc @ Tstep
+		for _ in range(N):
+			Tacc = Tacc @ Tstep_inv
+		err_T.append(np.linalg.norm(Tacc.M - np.eye(4)))
+		err_R.append(np.linalg.norm(Tacc.R.T @ Tacc.R - np.eye(3)))
+
+	err_T = np.array(err_T)
+	err_R = np.array(err_R)
+
+	# Оценка наклона в дважды логарифмическом масштабе
+	slope_T, intercept_T = np.polyfit(np.log(Ns), np.log(err_T), 1)
+	slope_R, intercept_R = np.polyfit(np.log(Ns), np.log(err_R), 1)
+	print('наклон ||T_acc - I|| ~ N^%.3f' % slope_T)
+	print('наклон ||R^TR - I|| ~ N^%.3f' % slope_R)
+
+	fig, axs = plt.subplots(1, 2, figsize=(11, 4.5))
+	axs[0].loglog(Ns, err_T, 'o-')
+	axs[0].set_title(r'$\|T_{acc}-I\|$'); axs[0].set_xlabel('N'); axs[0].grid(True, which='both')
+	axs[1].loglog(Ns, err_R, 'o-')
+	axs[1].set_title(r'$\|R^TR-I\|$'); axs[1].set_xlabel('N'); axs[1].grid(True, which='both')
+	plt.tight_layout(); plt.show()
+
+#endregion
+
+#region TASK 7
+
+def orthogonalize(R):
+    U, S, Vt = np.linalg.svd(R)
+    d = np.sign(np.linalg.det(U @ Vt))
+    D = np.diag([1.0, 1.0, d])
+    return U @ D @ Vt
+
+def orth_error(R):
+    return np.linalg.norm(R.T @ R - np.eye(3))
+
+def task_7():
+	R_init = rotz(0.7) @ roty(-0.4) @ rotx(0.2)
+
+	sigma = 2e-3
+	R_noisy = R_init + rng.normal(scale=sigma, size=(3, 3))
+	R_fixed = orthogonalize(R_noisy)
+
+	print('до исправления:')
+	print('  ошибка относительно R_init:\t', np.linalg.norm(R_noisy - R_init))
+	print('  неортогональность:\t\t', orth_error(R_noisy))
+	print('после исправления:')
+	print('  ошибка относительно R_init:\t', np.linalg.norm(R_fixed - R_init))
+	print('  неортогональность:\t\t', orth_error(R_fixed))
+
+#endregion
+
+LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6, task_7]
 
 # int main(int argc, char** argv) ;P
 if __name__ == '__main__':
+	if len(sys.argv) == 1:
+		for i in range(len(LAB_TASKS)):
+			print('\x1b[1;33mЗадание %d\x1b[0m' % (i+1))
+			LAB_TASKS[i]()
+			print('\n')
+
 	if len(sys.argv) == 2:
-		tasks = [task_1, task_2, task_3, task_4]
 		try:
 			id = int(sys.argv[1])
 			print('\x1b[1;33mЗадание %d\x1b[0m' % id)
-			tasks[id - 1]()
+			LAB_TASKS[id - 1]()
 		except:
 			sys.exit(0)
