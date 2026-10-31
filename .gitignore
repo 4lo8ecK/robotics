@@ -4,4 +4,6 @@
 !*.py
 !*.ipynb
 
+!*.png
+
 !.git*
