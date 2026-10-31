@@ -225,7 +225,10 @@ def task_4():
 
 	pp = np.linspace(0, 89.99, 1000)
 	plt.semilogy(pp, [np.linalg.cond(euler_rate_matrix([0.3, np.radians(p), 0.5])) for p in pp])
-	plt.xlabel('тангаж, °'); plt.ylabel('cond(E)'); plt.grid(True); plt.show()
+	plt.xlabel('тангаж, °')
+	plt.ylabel('cond(E)')
+	plt.grid(True)
+	plt.show()
 
 #endregion
 
@@ -253,8 +256,12 @@ def task_5():
 	speed = lambda Rl: np.array([np.linalg.norm(so3_log(Rl[i+1] @ Rl[i].T))/dt for i in range(len(Rl)-1)])
 	w_sl, w_eu = speed(R_sl), speed(R_eu)
 
-	plt.plot(w_sl, label='SLERP'); plt.plot(w_eu, label='углы Эйлера')
-	plt.xlabel('шаг'); plt.ylabel('|ω|, рад/с'); plt.legend(); plt.grid(True); plt.show()
+	plt.plot(w_sl, label='SLERP')
+	plt.plot(w_eu, label='углы Эйлера')
+	plt.xlabel('шаг'); plt.ylabel('|ω|, рад/с')
+	plt.legend()
+	plt.grid(True)
+	plt.show()
 
 #endregion
 
@@ -296,7 +303,11 @@ def task_6():
 	plt.loglog(res[:,0], res[:,1] + 1e-18, label='матрица')
 	plt.loglog(res[:,0], res[:,2] + 1e-18, label='кватернион без нормировки')
 	plt.loglog(res[:,0], res[:,3] + 1e-18, label='кватернион с нормировкой')
-	plt.xlabel('шаг'); plt.ylabel('ошибка'); plt.legend(); plt.grid(True); plt.show()
+	plt.xlabel('шаг')
+	plt.ylabel('ошибка')
+	plt.legend()
+	plt.grid(True)
+	plt.show()
 
 #endregion
 
