@@ -26,6 +26,10 @@ def ue_is_nearly_pi(val: float) -> bool:
 def normalize(v):
 	return v / np.linalg.norm(v)
 
+# для удобного расчёта цифрового фокуса
+def focus_mm_to_pixel(matrix_width=36, image_width=1920, focus_mm=50):
+	return focus_mm / ((matrix_width / image_width) / 2)
+
 
 #region TASK 1
 
@@ -58,7 +62,8 @@ def project(K, R, t, X):
 	return p[:, :2] / p[:, 2:3], z
 
 def task_1():
-	f, cx, cy = 50., 320., 240.
+	f = focus_mm_to_pixel()
+	cx, cy = 320., 240.
 	K = intrinsics(f, cx, cy)
 	eye    = np.array([4., -3., 2.])
 	target = np.array([0.,  0., 0.5])
@@ -74,7 +79,8 @@ def task_1():
 
 def task_2():
 
-	f, cx, cy = 0.35, 320., 240.
+	f = focus_mm_to_pixel()
+	cx, cy = 320., 240.
 	K = intrinsics(f, cx, cy)
 	eye    = np.array([10., 10, 2.5])
 	target = np.array([0.,  0., 0])
@@ -82,14 +88,9 @@ def task_2():
 	R, t = look_at(eye, target, up)
 
 	vertices_coords = [
-		(1., 0.5, 1),
-		(-1., 0.5, 1),
-		(1., 3.5, 1),
-		(-1., 3.5, 1),
-		(1., 0.5, 2),
-		(-1., 0.5, 2),
-		(1., 3.5, 2),
-		(-1., 3.5, 2),
+		(1., 0.5, 1), (-1., 0.5, 1), (1., 3.5, 1),
+		(-1., 3.5, 1), (1., 0.5, 2), (-1., 0.5, 2),
+		(1., 3.5, 2), (-1., 3.5, 2),
 	]
 	vertices_count = len(vertices_coords)
 	vertices_coords = np.array(vertices_coords)
@@ -104,15 +105,130 @@ def task_2():
 	uv, z = project(K, R, t, vertices_coords)
 	fig, ax = plt.subplots()
 	for i, j in indices:
-		ax.plot(*zip(uv[i], uv[j]), 'b-')   # линия между двумя спроецированными вершинами
-	ax.plot(cx, cy, 'r+', ms=12)            # главная точка
-	ax.invert_yaxis()                       # ось v вниз, иначе картинка вверх ногами
+		ax.plot(*zip(uv[i], uv[j]), 'b-')
+	ax.plot(cx, cy, 'r+', ms=12)
+	ax.invert_yaxis()
 	ax.set_aspect('equal')
 	plt.show()
 
 #endregion
 
+#region TASK 3
 
+def distort(xn, k1, k2, p1 = 0, p2 = 0):
+	x = xn[..., 0]
+	y = xn[..., 1]
+
+	# получение квадрата радиуса по формуле
+	r2 = x*x + y+y
+
+	# по формуле для xd
+	xd = x * (1 + k1*r2 + k2*r2*r2) + 2*p1*x*y + p2*(r2 + 2*x*x)
+	xy = y * (1 + k1*r2 + k2*r2*r2) + p1*(r2 + 2*y*y) + 2*p2*x*x
+
+	return np.stack([xd, xy], -1)
+	
+
+def undistort(xd, k1, k2, p1=0, p2=0, iterations=50):
+	x = xd.copy()
+
+	for i in range(iterations):
+		# вычитаем смещение при искажении
+		# чем больше итераций, тем ближе результат к значениям до искажения
+		x -= distort(x, k1, k2, p1, p2) - xd
+	
+	return x
+
+def task_3():
+
+	resolution = (1920, 1080)
+	F = focus_mm_to_pixel(36, resolution[0], 58)
+	print('focus =', F)
+	max_x = resolution[0] / F
+	max_y = resolution[1] / F
+
+	print('max_x =', max_x, 'max_y =', max_y)
+
+	ls_x = np.linspace(-max_x, max_x, 9)
+	ls_y = np.linspace(-max_y, max_x, 9)
+	gx, gy = np.meshgrid(ls_x, ls_y)
+	x = np.stack([gx, gy], -1).reshape(-1, 2)
+	
+	k1 = -0.28
+	k2 = 0.09
+	p1 = 0.0
+	p2 = 0.05
+
+	iter_count = 30
+
+	xd = distort(x, k1, k2, p1, p2)
+	xd2 = distort(x, -k1, k2, p1, p2)
+	xr = undistort(xd, k1, k2, p1, p2, iterations=iter_count)
+
+	val = np.linalg.norm(undistort(distort(x, k1, k2), k1, k2, iterations=iter_count)) - np.linalg.norm(x)
+	res = '\x1b[32;1mOK\x1b[0m' if abs(val) < 1e-12 else "\x1b[31;1mFAILED\x1b[0m"
+	print(f"||undistort(distort(x)) - x|| = {val}. {res}\nКоличество итераций = {iter_count}, необходимо для удовлетворения условию - 20")
+
+	fig, axs = plt.subplots(1, 4, figsize=(15, 6))
+	for ax, P, title in zip(axs, (x, xd, xd2, xr), ("изначальный вариант", "искажённый k1=-0.28", "искажённый k1=+0.28", "восстановленный")):
+		G = P.reshape(9, 9, 2)
+		for i in range(9):
+			ax.plot(G[i, :, 0], G[i, :, 1], 'b-')
+			ax.plot(G[:, i, 0], G[:, i, 1], 'b-')
+		ax.set_aspect('equal')
+		ax.set_title(title)
+	
+	plt.show()
+
+#endregion
+
+#region TASK 4
+
+def stereo_project(P, f, B, cx):
+	u_L = f * P[:, 0] / P[:, 2] + cx
+	u_R = f * (P[:, 0] - B) / P[:, 2] + cx
+	return u_L, u_R
+
+def task_4():
+	
+
+
+	pass
+
+
+#endregion
+#region TASK 4
+def task_5(): pass
+#endregion
+#region TASK 4
+def task_6(): pass
+#endregion
+#region TASK 4
+def task_7(): pass
+#endregion
+
+
+#region MAIN
+
+LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6, task_7]
 
 if __name__ == '__main__':
-	task_2()
+	task_3()
+
+# int main(int argc, char** argv) ;P
+# if __name__ == '__main__':
+# 	if len(sys.argv) == 1:
+# 		for i in range(len(LAB_TASKS)):
+# 			print('\x1b[1;33mЗадание %d\x1b[0m' % (i+1))
+# 			LAB_TASKS[i]()
+# 			print('\n')
+
+# 	if len(sys.argv) == 2:
+# 		try:
+# 			id = int(sys.argv[1])
+# 			print('\x1b[1;33mЗадание %d\x1b[0m' % id)
+# 			LAB_TASKS[id - 1]()
+# 		except:
+# 			sys.exit(0)
+
+#endregion
