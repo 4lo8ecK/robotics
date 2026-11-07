@@ -1,5 +1,6 @@
 import sys
 import time
+import random
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,13 +9,17 @@ import itertools
 # промежуток для рандомных чисел векторов сдвига
 SHIFT_MAX: int = 5
 SHIFT_MIN: int = -SHIFT_MAX
-SEED = None
+SEED = 0
 
 np.set_printoptions(precision=4, suppress=True)
 rng = np.random.default_rng(seed=SEED)
+random.seed(SEED)
 
 # константа как в UE5
 SMALL_NUMBER = 1e-8
+
+def rand_num(MIN=0, MAX=10):
+	return (random.random() % MAX) - MIN
 
 # ue_is_nearly_zero(val: float) -> bool -- копирка bool IsNearlyZero(float, float) из UE5
 def ue_is_nearly_zero(val: float) -> bool:
@@ -26,14 +31,19 @@ def ue_is_nearly_pi(val: float) -> bool:
 def normalize(v):
 	return v / np.linalg.norm(v)
 
+# глобальные константы
+RES = (1920, 1080)
+CX = RES[0] / 2
+CY = RES[1] / 2
+
+MATRIX_WIDTH = 36 # обычный размер матрицы full-frame камеры 
+DEFAULT_OPTIC_FOCUS = 50
+
 # для удобного расчёта цифрового фокуса
-def focus_mm_to_pixel(matrix_width=36, image_width=1920, focus_mm=50):
+def focus_mm_to_pixel(matrix_width=MATRIX_WIDTH, image_width=RES[0], focus_mm=DEFAULT_OPTIC_FOCUS):
 	return focus_mm / ((matrix_width / image_width) / 2)
 
-
 #region TASK 1
-
-# intrinsics(f, cx, cy)`, `look_at(eye, target, up)` и `project(K, R, t, X)
 
 # f- фокус
 # cx - центр в OX
@@ -63,7 +73,7 @@ def project(K, R, t, X):
 
 def task_1():
 	f = focus_mm_to_pixel()
-	cx, cy = 320., 240.
+	cx, cy = CX, CY
 	K = intrinsics(f, cx, cy)
 	eye    = np.array([4., -3., 2.])
 	target = np.array([0.,  0., 0.5])
@@ -78,9 +88,9 @@ def task_1():
 #region TASK 2
 
 def task_2():
-
 	f = focus_mm_to_pixel()
-	cx, cy = 320., 240.
+	cx, cy = CX, CY
+
 	K = intrinsics(f, cx, cy)
 	eye    = np.array([10., 10, 2.5])
 	target = np.array([0.,  0., 0])
@@ -141,11 +151,10 @@ def undistort(xd, k1, k2, p1=0, p2=0, iterations=50):
 
 def task_3():
 
-	resolution = (1920, 1080)
-	F = focus_mm_to_pixel(36, resolution[0], 58)
+	F = focus_mm_to_pixel(36, RES[0], 58)
 	print('focus =', F)
-	max_x = resolution[0] / F
-	max_y = resolution[1] / F
+	max_x = RES[0] / F
+	max_y = RES[1] / F
 
 	print('max_x =', max_x, 'max_y =', max_y)
 
@@ -189,11 +198,24 @@ def stereo_project(P, f, B, cx):
 	u_R = f * (P[:, 0] - B) / P[:, 2] + cx
 	return u_L, u_R
 
+def calc_z(f, B, d):
+	return f * B / d
+
+
 def task_4():
-	
+	B = 0.12
+	f = 800
+	cx = 320.
 
+	z_arr = np.array([0.5, 1, 2, 4, 8, 16])
 
-	pass
+	P  = np.stack([rand_num(0, 1) * np.ones_like(z_arr), rand_num(0, 1) * np.ones_like(z_arr), z_arr], 1)
+	uL, uR = stereo_project(P, f, B, cx)
+	d = uL - uR
+	z_rec = calc_z(f, B, d)
+
+	print('диспаратность d =', d)
+	print('востановленные через формулу значения', z_rec)
 
 
 #endregion
@@ -212,23 +234,23 @@ def task_7(): pass
 
 LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6, task_7]
 
-if __name__ == '__main__':
-	task_3()
+# if __name__ == '__main__':
+# 	task_4()
 
 # int main(int argc, char** argv) ;P
-# if __name__ == '__main__':
-# 	if len(sys.argv) == 1:
-# 		for i in range(len(LAB_TASKS)):
-# 			print('\x1b[1;33mЗадание %d\x1b[0m' % (i+1))
-# 			LAB_TASKS[i]()
-# 			print('\n')
+if __name__ == '__main__':
+	if len(sys.argv) == 1:
+		for i in range(len(LAB_TASKS)):
+			print('\x1b[1;33mЗадание %d\x1b[0m' % (i+1))
+			LAB_TASKS[i]()
+			print('\n')
 
-# 	if len(sys.argv) == 2:
-# 		try:
-# 			id = int(sys.argv[1])
-# 			print('\x1b[1;33mЗадание %d\x1b[0m' % id)
-# 			LAB_TASKS[id - 1]()
-# 		except:
-# 			sys.exit(0)
+	if len(sys.argv) == 2:
+		try:
+			id = int(sys.argv[1])
+			print('\x1b[1;33mЗадание %d\x1b[0m' % id)
+			LAB_TASKS[id - 1]()
+		except:
+			sys.exit(0)
 
 #endregion
