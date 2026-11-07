@@ -245,8 +245,18 @@ def task_5():
 #endregion
 #region TASK 6
 
-
-def task_6(): pass
+def task_6():
+	f = 800
+	B = 0.12
+	sd, N = 0.25, 20000
+	z0 = 6.
+	Bs = np.geomspace(0.03, 0.5, 12)
+	e = []
+	for Bb in Bs:
+		dn = f*Bb/z0 + sd * rng.standard_normal(N)
+		e.append((f*Bb/dn).std())
+	slope = np.polyfit(np.log(Bs), np.log(e), 1)[0]
+	print(slope)
 
 #endregion
 #region TASK 7
