@@ -217,15 +217,39 @@ def task_4():
 	print('диспаратность d =', d)
 	print('востановленные через формулу значения', z_rec)
 
+#endregion
+
+#region TASK 5
+
+def task_5():
+	f = 800
+	B = 0.12
+	sd, N = 0.25, 20000
+	zg = np.geomspace(0.5, 30, 18)
+	emp, th = [], []
+	for z0 in zg:
+		d0 = f*B/z0
+		dn = d0 + sd * rng.standard_normal(N)
+		emp.append((f*B/dn).std())
+		th.append(z0**2 * sd / (f*B))
+	emp, th = np.array(emp), np.array(th)
+
+	slope = np.polyfit(np.log(zg), np.log(emp), 1)[0]
+
+	fig, ax = plt.subplots()
+	ax.loglog(zg, emp, 'o')
+	ax.loglog(zg, th, '-')
+
+	plt.show()
 
 #endregion
-#region TASK 4
-def task_5(): pass
-#endregion
-#region TASK 4
+#region TASK 6
+
+
 def task_6(): pass
+
 #endregion
-#region TASK 4
+#region TASK 7
 def task_7(): pass
 #endregion
 
@@ -233,9 +257,6 @@ def task_7(): pass
 #region MAIN
 
 LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6, task_7]
-
-# if __name__ == '__main__':
-# 	task_4()
 
 # int main(int argc, char** argv) ;P
 if __name__ == '__main__':
@@ -246,11 +267,8 @@ if __name__ == '__main__':
 			print('\n')
 
 	if len(sys.argv) == 2:
-		try:
-			id = int(sys.argv[1])
-			print('\x1b[1;33mЗадание %d\x1b[0m' % id)
-			LAB_TASKS[id - 1]()
-		except:
-			sys.exit(0)
+		id = int(sys.argv[1])
+		print('\x1b[1;33mЗадание %d\x1b[0m' % id)
+		LAB_TASKS[id - 1]()
 
 #endregion
