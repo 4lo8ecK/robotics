@@ -7,3 +7,6 @@
 !*.png
 
 !.git*
+
+!misc/*
+!lab.exe
