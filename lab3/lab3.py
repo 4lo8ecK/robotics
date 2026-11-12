@@ -132,12 +132,11 @@ def distort(xn, k1, k2, p1 = 0, p2 = 0):
 	# получение квадрата радиуса
 	# раньше было r2 = x*x + y+y - опечатка, из-за которой изображения искажались неправильно
 	r2 = x*x + y*y
-	
 	# по формуле
 	xd = x * (1 + k1*r2 + k2*r2*r2) + 2*p1*x*y + p2*(r2 + 2*x*x)
 	yd = y * (1 + k1*r2 + k2*r2*r2) + p1*(r2 + 2*y*y) + 2*p2*x*y
-
-	return np.stack([xd, xy], -1)
+	
+	return np.stack([xd, yd], -1)
 	
 
 def undistort(xd, k1, k2, p1=0, p2=0, iterations=50):
@@ -167,7 +166,7 @@ def task_3():
 	k1 = -0.28
 	k2 = 0.09
 	p1 = 0.0
-	p2 = 0.05
+	p2 = 0.0
 
 	iter_count = 30
 
