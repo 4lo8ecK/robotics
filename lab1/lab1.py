@@ -36,7 +36,7 @@ class Transform:
 	def __init__(self, matrix=None):
 		self.M = np.eye(4) if matrix is None else np.asarray(matrix, dtype=float)
 		if self.M.shape != (4, 4):
-			raise palueError('нужна матрица 4x4, получено %s' % (self.M.shape,))
+			raise ValueError('нужна матрица 4x4, получено %s' % (self.M.shape,))
 
 	@classmethod
 	def from_Rt(cls, R, t):
