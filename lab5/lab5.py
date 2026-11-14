@@ -187,7 +187,7 @@ def forward_kinematic(lib: ModuleType = np, angles: Iterable|Any|None = None) ->
 	assert angles is not None, TypeError
 
 	T = lib.eye(4)
-	for (a, alpha, d), th in zip(UR5(np), angles):
+	for (a, alpha, d), th in zip(UR5(lib), angles):
 		T = T @ dh(a, alpha, d, th, lib)
 	return sp.Matrix(T) if lib is sp else np.array(T)
 
