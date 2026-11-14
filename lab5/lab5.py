@@ -272,7 +272,7 @@ def task_4():
 	steps = 30
 	l1, l2 = 0.5, 0.35
 	print(f'l1 = {l1}, l2 = {l2}')
-	print(f'Площадь кольца по формуле:\t\t{calc_ring_area(0.5, 0.35):.6f}')
+	print(f'Площадь кольца по формуле:\t{calc_ring_area(0.5, 0.35):.6f}')
 
 	numbers = np.logspace(2, 6, steps).astype(int)
 	errs = [np.mean([abs(monte_carlo_area(l1, l2, N) - calc_ring_area(l1,l2)) for _ in range(steps)]) for N in numbers]
@@ -285,7 +285,31 @@ def task_4():
 	plt.show()
 
 #endregion TASK 5
-def task_5(): pass
+
+def voxel_volume(points, h):
+	indices = np.floor(points / h).astype(int)
+	found = len(np.unique(indices, axis=0))
+	return found * (h ** 3)
+
+def task_5():
+	angles_sp = sp.symbols('q1 q2 q3 q4 q5 q6', real=True)
+	f_cse = sp.lambdify(angles_sp, forward_kinematic(sp, angles_sp), 'numpy', cse=True)
+
+	N = 20000
+	angles = rng.uniform(-np.pi, np.pi, (N, 6))
+	points = np.array([np.array(f_cse(*a), dtype=float)[:3,3] for a in angles])
+
+	print(yellow('Проверка зависимости объема от значения h'))
+	for h in (0.08, 0.05, 0.03):
+		print(f'h = {h}\tV = {voxel_volume(points, h):.4f}')
+
+	print(yellow('\nПроврека зависимости объема от числа точек при h = 0.05'))
+	for n in np.linspace(100, N, 5, dtype=int):
+		print(f'n = {n}\tV = {voxel_volume(points[:n], 0.05):.8f}')
+
+	
+
+#endregion
 def task_6(): pass
 def task_7(): pass
 
