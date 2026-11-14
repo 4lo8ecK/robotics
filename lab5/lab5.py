@@ -13,7 +13,7 @@ from types import ModuleType
 # промежуток для рандомных чисел векторов сдвига
 SHIFT_MAX: int = 5
 SHIFT_MIN: int = -SHIFT_MAX
-SEED = 0
+SEED = None
 
 np.set_printoptions(precision=4, suppress=True)
 rng = np.random.default_rng(seed=SEED)
@@ -284,7 +284,8 @@ def task_4():
 	plt.grid(visible=True, which='both')
 	plt.show()
 
-#endregion TASK 5
+#endregion
+#region TASK 5
 
 def voxel_volume(points, h):
 	indices = np.floor(points / h).astype(int)
@@ -307,10 +308,74 @@ def task_5():
 	for n in np.linspace(100, N, 5, dtype=int):
 		print(f'n = {n}\tV = {voxel_volume(points[:n], 0.05):.8f}')
 
+#endregion
+#region TASK 6
+
+def skew(w):
+	x, y, z = w[0], w[1], w[2]
+	return np.asarray(
+		[[0, -z,  y],
+		[ z,  0, -x],
+		[-y,  x,  0]])
+
+def exp_se3(S, theta):
+	w, v = S[:3], S[3:]
+	T = np.eye(4)
+	if np.linalg.norm(w) < 1e-12:
+		T[:3, 3] = v * theta
+		return T
+	W = skew(w)
+	R = np.eye(3) + np.sin(theta) * W + (1 - np.cos(theta)) * W @ W
+	G = np.eye(3) * theta + (1 - np.cos(theta)) * W + (theta - np.sin(theta)) * W @ W
+	T[:3, :3] = R
+	T[:3, 3] = G @ v
+	return T
+
+def screw_axis(dir, point):
+    dir = np.array(dir, dtype=float)
+    point = np.array(point, dtype=float)
+    return np.concatenate([dir, -np.cross(dir, point)])
+
+def fk_poe(screw_axes, home, q):
+	T = np.eye(4)
+	for S, t in zip(screw_axes, q):
+		T = T @ exp_se3(S, t)
+	return T @ home
+
+def fk_dh(links, q):
+	T = np.eye(4)
+	for (a, alpha, d), angle in zip(links, q):
+		T = T @ dh(a, alpha, d, angle)
+	return T
+
+def task_6():
+	count = 500
 	
+	link_lengths = np.sort(rng.uniform(0, 1, 3))[::-1]
+	# link_lengths = [0.5, 0.4, 0.3]
+
+	print(f'Длины звеньев {link_lengths}')
+	joint_x = np.concatenate([[0.0], np.cumsum(link_lengths)[:-1]])
+
+	axes = [screw_axis([0,0,1],[x, 0, 0]) for x in joint_x]
+	home = np.eye(4)
+	home[0, 3] = sum(link_lengths)
+
+	dh_links = [(l, 0, 0) for l in link_lengths]
+
+	for s in axes:
+		print(f'винтовая ось {s}')
+
+	max_diff = 0
+	for i in range(count):
+		angles = np.asarray(rng.uniform(-np.pi, np.pi, 3))
+		diff = np.abs(fk_poe(axes, home, angles) - fk_dh(dh_links, angles)).max()
+		max_diff = max(max_diff, diff)
+
+	print(f"Максимальное расхождение PoE и DH: {max_diff} => {check(max_diff < 1e-12)}")
+
 
 #endregion
-def task_6(): pass
 def task_7(): pass
 
 LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6, task_7]
