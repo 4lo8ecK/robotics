@@ -26,13 +26,19 @@ def ue_is_nearly_zero(val: float) -> bool: return abs(val) <= SMALL_NUMBER
 def ue_is_nearly_equal(a: float, b: float) -> bool: return abs(a - b) <= SMALL_NUMBER
 def ue_is_nearly_pi(val: float) -> bool: return abs(val - np.pi) <= 1e-4
 
-def red(val) -> str: return f'{c.style(c.red)}{val}{c.style(c.clear)}'
-def green(val) -> str: return f'{c.style(c.green)}{val}{c.style(c.clear)}'
-def yellow(val) -> str: return f'{c.style(c.yellow)}{val}{c.style(c.clear)}'
-def bold(val) -> str: return f'{c.style(c.bold)}{val}{c.style(c.clear)}'
+RED = c.style(c.red)
+GREEN = c.style(c.green)
+YELLOW = c.style(c.yellow)
+BOLD = c.style(c.bold)
+CLS = c.style(c.clear)
+
+def red(val) -> str: return f'{RED}{val}{CLS}'
+def green(val) -> str: return f'{GREEN}{val}{CLS}'
+def yellow(val) -> str: return f'{YELLOW}{val}{CLS}'
+def bold(val) -> str: return f'{BOLD}{val}{CLS}'
 
 def check(expr):
-	return f'{bold(green('OK'))}' if expr else f'{bold(red('FAIL'))}'
+	return f'{c.style(c.bold, c.green)}OK{CLS}' if expr else f'{c.style(c.bold, c.red)}FAIL{CLS}'
 
 # параметры UR5: (a, alpha, d) для шести звеньев, метры и радианы
 def UR5(lib=np):
@@ -43,7 +49,7 @@ def UR5(lib=np):
 			(0.0,     -lib.pi / 2,  0.09465),
 			(0.0,      0.0,        0.0823)]
 
-# region TASK 1
+#region TASK 1
 
 def R_x(alpha: float, lib=np) -> sp.Matrix|np.ndarray:
 	c = lib.cos(alpha)
@@ -120,7 +126,7 @@ def __task_1(lib=np):
 	
 	norm_func = np.linalg.norm if lib is np else sp.Matrix.norm
 	difference = norm_func(R.T @ R - lib.eye(3))
-	print(f'{c.style(c.bold)}||R.T @ R - E||{c.style(c.clear)} = {difference}\t=> {check(ue_is_nearly_zero(difference))}')
+	print(f'{BOLD}||R.T @ R - E||{CLS} = {difference}\t=> {check(ue_is_nearly_zero(difference))}')
 	print()
 
 def task_1():
@@ -136,7 +142,7 @@ def task_2():
 	T = dh(l1, 0, 0, q1, sp) @ dh(l2, 0, 0, q2, sp) @ dh(l3, 0, 0, q3, sp)
 	x_sym = sp.simplify(T[0,3])
 	y_sym = sp.simplify(T[1,3])
-	print(f'{c.style(c.yellow)}Вычислено с помощью SymPy{c.style(c.clear)}')
+	print(f'{YELLOW}Вычислено с помощью SymPy{CLS}')
 	print('x =', x_sym)
 	print('y =', y_sym)
 
@@ -145,14 +151,14 @@ def task_2():
 	x_ref = l1*sp.cos(q1) + l2*sp.cos(q1 + q2) + l3*sp.cos(q1 + q2 + q3)
 	y_ref = l1*sp.sin(q1) + l2*sp.sin(q1 + q2) + l3*sp.sin(q1 + q2 + q3)
 	
-	print(f'\n{c.style(c.yellow)}Референсные формулы из шаблона{c.style(c.clear)}')
+	print(f'\n{YELLOW}Референсные формулы из шаблона{CLS}')
 	print('x_ref =', x_ref)
 	print('y_ref =', y_ref)
 
 	chck_x = sp.simplify(x_sym - x_ref)
 	chck_y = sp.simplify(y_sym - y_ref)
 
-	print(f'\n{c.style(c.yellow)}Сверка результатов. Должно равняться нулю{c.style(c.clear)}')
+	print(f'\n{YELLOW}Сверка результатов. Должно равняться нулю{CLS}')
 	print(f'x - x_ref = {chck_x}\t=> {check(float(chck_x) == 0)}')
 	print(f'y - y_ref = {chck_y}\t=> {check(float(chck_y) == 0)}')
 
@@ -166,7 +172,6 @@ def task_2():
 	print(f'ориентация схвата = {sp.simplify(orient)}')
 	
 #endregion
-
 #region TASK 3
 # возвращает время выполнения функции n-ое количество раз в микросекундах
 def timer(func: Callable, count: int = 1) -> int:
@@ -194,9 +199,9 @@ def task_3():
 	fk_sym_time = timer(lambda: forward_kinematic(sp, angles_sp))
 	
 	print(yellow('Скорость создания матриц кинематики'))
-	print(f'num\t{c.style(c.green)}{fk_num_time} мкс{c.style(c.clear)}')
-	print(f'sym\t{c.style(c.green)}{fk_sym_time} мкс{c.style(c.clear)}')
-	print(f'numsym\t{c.style(c.green)}{(f'{(fk_sym_time / fk_num_time):.2f}')}{c.style(c.clear)}')
+	print(f'num\t{GREEN}{fk_num_time} мкс{CLS}')
+	print(f'sym\t{GREEN}{fk_sym_time} мкс{CLS}')
+	print(f'numsym\t{GREEN}{(f'{(fk_sym_time / fk_num_time):.2f}')}{CLS}')
 
 	f_lamdify = sp.lambdify(angles_sp, forward_kinematic(sp, angles_sp), 'numpy', cse=False)
 	f_cse = sp.lambdify(angles_sp, forward_kinematic(sp, angles_sp), 'numpy', cse=True)
@@ -210,8 +215,8 @@ def task_3():
 	delta_lambda = np.abs(A - B).max()
 	delta_cse = np.abs(A - C).max()
 	print(yellow('\nПроверка ошибок'))
-	print(f'num - lambdify\t{c.style(c.green)}{delta_lambda:.2e}{c.style(c.clear)}\t=> {check(ue_is_nearly_zero(delta_lambda))}')
-	print(f'num - cse\t{c.style(c.green)}{delta_cse:.2e}{c.style(c.clear)}\t=> {check(ue_is_nearly_zero(delta_cse))}')
+	print(f'num - lambdify\t{GREEN}{delta_lambda:.2e}{CLS}\t=> {check(ue_is_nearly_zero(delta_lambda))}')
+	print(f'num - cse\t{GREEN}{delta_cse:.2e}{CLS}\t=> {check(ue_is_nearly_zero(delta_cse))}')
 
 	T_sp: sp.Matrix = sp.Matrix(forward_kinematic(sp, angles_sp))
 	sub = dict(zip(angles_sp, angles_np))
@@ -221,7 +226,7 @@ def task_3():
 	time_loop = timer(lambda: forward_kinematic(np, angles_np))
 
 	print(yellow('\nЗамер скоростей работы'))
-	print(f'{c.style(c.bold)}{'метод':16s}{'мс':10s}{'ускорение'}{c.style(c.clear)}')
+	print(f'{c.style(c.bold)}{'метод':16s}{'мс':10s}{'ускорение'}{CLS}')
 	for name, time in [
 			('subs + evalf', time_subs),
 			('lambda', time_lambda),
@@ -243,8 +248,43 @@ def task_3():
 	print(f'оценка сверху\t\t{upper:.4f} м')
 	print(f'лежит между границами => {check(lower < reach < upper)}')	
 #endregion
+#region TASK 4
 
-def task_4(): pass
+# площадь кольца, указанного через l1 и l2
+# где r1 = |l1 - l2|, r2 = l1 + l2
+# pi*(l1+l2)^2 - pi*(l1-l2)^2 => pi*((l1+l2)^2 - (l1-l2)^2) => 4*pi*l1*l2
+def calc_ring_area(l1: float, l2: float) -> float:
+	return np.pi * (4 * l1 * l2)
+
+def monte_carlo_area(l1: float, l2: float, points_count: int) -> float:
+	r_out = l1+l2
+	r_in = abs(l1-l2)
+	
+	x = np.random.uniform(-r_out, r_out, points_count)
+	y = np.random.uniform(-r_out, r_out, points_count)
+
+	dist_square = x*x + y*y
+	inside = (dist_square >= r_in*r_in) &  (dist_square <= r_out*r_out)
+	return 4*r_out*r_out * np.mean(inside)
+
+	
+def task_4():
+	steps = 30
+	l1, l2 = 0.5, 0.35
+	print(f'l1 = {l1}, l2 = {l2}')
+	print(f'Площадь кольца по формуле:\t\t{calc_ring_area(0.5, 0.35):.6f}')
+
+	numbers = np.logspace(2, 6, steps).astype(int)
+	errs = [np.mean([abs(monte_carlo_area(l1, l2, N) - calc_ring_area(l1,l2)) for _ in range(steps)]) for N in numbers]
+	slope = np.polyfit(np.log10(numbers), np.log10(errs), 1)[0]
+	print(f'Наклон = {slope}')
+
+	plt.loglog(numbers, errs, 'o-', label='ошибка (среднее по 30 запускам)')
+	plt.loglog(numbers, errs[0] * (numbers / numbers[0])**-0.5, '--', label='N^(-1/2)')
+	plt.grid(visible=True, which='both')
+	plt.show()
+
+#endregion TASK 5
 def task_5(): pass
 def task_6(): pass
 def task_7(): pass
@@ -257,13 +297,13 @@ if __name__ == '__main__':
 		# если нет аргументов, выполняются все задания
 		if len(sys.argv) == 1:
 			for i in range(len(LAB_TASKS)):
-				print(f'{c.style(c.bold, c.yellow)}Задание {i + 1}{c.style(c.clear)}')
+				print(f'{c.style(c.bold, c.yellow)}Задание {i + 1}{CLS}')
 				LAB_TASKS[i]()
 				print('\n')
 		# выполняется задание, указанное в аргументе
 		if len(sys.argv) == 2:
 			id = int(sys.argv[1])
-			print(f'{c.style(c.bold, c.yellow)}Задание {id}{c.style(c.clear)}')
+			print(f'{c.style(c.bold, c.yellow)}Задание {id}{CLS}')
 			LAB_TASKS[id - 1]()
 
 	except KeyboardInterrupt:
