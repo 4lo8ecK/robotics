@@ -45,13 +45,13 @@ def check(expr: bool) -> str:
 K = np.array([[800.0, 0.0, 640.0], [0.0, 800.0, 360.0], [0.0, 0.0, 1.0]])
 
 def rodrigues(w: arr_t) -> arr_t:
-    """Формула Родрига из лекции 3 — понадобится для задания 4."""
-    th = np.linalg.norm(w)
-    if th < 1e-12:
-        return np.eye(3)
-    k = w / th
-    Kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
-    return np.eye(3) + np.sin(th) * Kx + (1 - np.cos(th)) * Kx @ Kx
+	"""Формула Родрига из лекции 3 — понадобится для задания 4."""
+	th = np.linalg.norm(w)
+	if th < 1e-12:
+		return np.eye(3)
+	k = w / th
+	Kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+	return np.eye(3) + np.sin(th) * Kx + (1 - np.cos(th)) * Kx @ Kx
 
 
 #region TASK 1
@@ -87,10 +87,10 @@ def apply_H(H: arr_t, pts: arr_t) -> arr_t:
 	return q[:, :2] / q[:, 2:3]
 
 def project_plane(M: arr_t, R: arr_t, t: arr_t) -> arr_t:
-    X = np.hstack([M, np.zeros((len(M), 1))])
-    Xc = X @ R.T + t
-    uvw = Xc @ K.T
-    return uvw[:, :2] / uvw[:, 2:3]
+	X = np.hstack([M, np.zeros((len(M), 1))])
+	Xc = X @ R.T + t
+	uvw = Xc @ K.T
+	return uvw[:, :2] / uvw[:, 2:3]
 
 def task_1():
 	# точки квадрата со сторонами 0.2 и центром в (0,0)
@@ -232,27 +232,27 @@ def task_3():
 #region TASK 4
 
 def reproject(xi, X):
-    R, t = rodrigues(xi[:3]), xi[3:]
-    Xc = X @ R.T + t
-    uvw = Xc @ K.T
-    return uvw[:, :2] / uvw[:, 2:3]
+	R, t = rodrigues(xi[:3]), xi[3:]
+	Xc = X @ R.T + t
+	uvw = Xc @ K.T
+	return uvw[:, :2] / uvw[:, 2:3]
 
 def pnp_gauss_newton(X, uv, xi0, iters=30, tol=1e-14):
-    xi = xi0.astype(float).copy()
-    hist = []
-    for _ in range(iters):
-        r = (reproject(xi, X) - uv).ravel()
-        hist.append(np.sqrt(np.mean(r ** 2)))
-        J = np.zeros((len(r), 6))
-        for k in range(6):
-            e = np.zeros(6); e[k] = 1e-7
-            J[:, k] = ((reproject(xi + e, X) - reproject(xi - e, X)).ravel()) / 2e-7
-        d = np.linalg.lstsq(J, -r, rcond=None)[0]
-        xi = xi + d
-        if np.linalg.norm(d) < tol:
-            break
-    hist.append(np.sqrt(np.mean((reproject(xi, X) - uv).ravel() ** 2)))
-    return xi, hist
+	xi = xi0.astype(float).copy()
+	hist = []
+	for _ in range(iters):
+		r = (reproject(xi, X) - uv).ravel()
+		hist.append(np.sqrt(np.mean(r ** 2)))
+		J = np.zeros((len(r), 6))
+		for k in range(6):
+			e = np.zeros(6); e[k] = 1e-7
+			J[:, k] = ((reproject(xi + e, X) - reproject(xi - e, X)).ravel()) / 2e-7
+		d = np.linalg.lstsq(J, -r, rcond=None)[0]
+		xi = xi + d
+		if np.linalg.norm(d) < tol:
+			break
+	hist.append(np.sqrt(np.mean((reproject(xi, X) - uv).ravel() ** 2)))
+	return xi, hist
 
 def task_4():
 	M = np.array([[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]])
@@ -277,7 +277,79 @@ def task_4():
 
 #endregion
 
-def task_5(): pass
+#region TASK 5
+
+def ransac_homography(src: arr_t, dst: arr_t, thr: float = 3.0, iters: int = 2000, seed: int = 0) -> tuple[arr_t, arr_t]:
+	best_in: arr_t|None = None
+	best_H: arr_t|None = None
+	
+	n = len(src)
+	for i in range(iters):
+		index = rng.choice(n, 4, replace=False)
+		H = dlt_normalized(src[index], dst[index])
+	
+		d = np.linalg.norm(apply_H(H, src) - dst, axis=1)
+		inl = d < thr
+
+		if best_in is None or inl.sum() > best_in.sum():
+			best_in, best_H = inl, H
+
+	if np.array(best_in).sum() >= 4:
+		best_H = dlt_normalized(src[best_in], dst[best_in])
+		
+	return np.array(best_H), np.array(best_in)
+
+def make_data(R_true, t_true, n=120, frac_out=0.4, noise=0.5, seed=1):
+	r = np.random.default_rng(seed)
+	S = r.uniform(-0.1, 0.1, (n, 2))
+	Dt = project_plane(S, R_true, t_true) + r.normal(0, noise, (n, 2))
+	k = int(n * frac_out)
+	out = r.choice(n, k, replace=False)
+	Dt[out] += r.uniform(-180, 180, (k, 2))
+	mask = np.ones(n, bool); mask[out] = False
+	return S, Dt, mask
+
+def task_5():
+	M = np.array([[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]])
+	w_true = np.array([0.35, -0.55, 0.25])
+	R_true = rodrigues(w_true)
+	t_true = np.array([0.02, -0.01, 0.9])
+	img = project_plane(M, R_true, t_true)
+	H = dlt_homography(M, img)
+
+	S, Dt, inl_true = make_data(R_true, t_true)
+	H_plain = dlt_normalized(S, Dt)
+	H_rs, inl = ransac_homography(S, Dt)
+	clean = project_plane(S[inl_true], R_true, t_true)
+	e_plain = np.sqrt(np.mean((apply_H(H_plain, S[inl_true]) - clean) ** 2))
+	e_rs = np.sqrt(np.mean((apply_H(H_rs, S[inl_true]) - clean) ** 2))
+	print('при 40 %% выбросов — СКО без RANSAC %.1f пикс, с RANSAC %.3f пикс' % (e_plain, e_rs))
+	print('найдено правильных соответствий %d из %d, ложных %d' % ((inl & inl_true).sum(), inl_true.sum(), (inl & ~inl_true).sum()))
+	assert e_rs < 1.0 and e_plain > 10
+
+	fracs = np.arange(0.0, 0.75, 0.05)
+	ep, er = [], []
+	for fo in fracs:
+		S2, D2, m2 = make_data(R_true, t_true, frac_out=fo, seed=int(fo * 100) + 7)
+		cl = project_plane(S2[m2], R_true, t_true)
+		ep.append(np.sqrt(np.mean((apply_H(dlt_normalized(S2, D2), S2[m2]) - cl) ** 2)))
+		Hr, _ = ransac_homography(S2, D2, seed=int(fo * 100))
+		er.append(np.sqrt(np.mean((apply_H(Hr, S2[m2]) - cl) ** 2)))
+	print('доля выбросов 0 %% -> 70 %%: СКО с RANSAC от %.3f до %.3f пикс'
+		% (er[0], er[-1]))
+
+	fig, ax = plt.subplots(figsize=(7.5, 4))
+	ax.semilogy(fracs * 100, ep, 'o-', label='обычный МНК')
+	ax.semilogy(fracs * 100, er, 's-', label='RANSAC')
+	ax.set_xlabel('доля выбросов, %')
+	ax.set_ylabel('СКО репроекции, пикс')
+	ax.legend()
+	ax.grid(alpha=.3)
+	plt.tight_layout()
+	plt.show()
+
+#endregion
+
 def task_6(): pass
 
 LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6]
