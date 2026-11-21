@@ -10,6 +10,8 @@ import colors as c
 from typing import Iterable, Collection, Callable, Any
 from types import ModuleType
 
+arr_t = np.ndarray
+
 # промежуток для рандомных чисел векторов сдвига
 SHIFT_MAX: int = 5
 SHIFT_MIN: int = -SHIFT_MAX
@@ -42,7 +44,7 @@ def check(expr: bool) -> str:
 
 K = np.array([[800.0, 0.0, 640.0], [0.0, 800.0, 360.0], [0.0, 0.0, 1.0]])
 
-def rodrigues(w):
+def rodrigues(w: arr_t) -> arr_t:
     """Формула Родрига из лекции 3 — понадобится для задания 4."""
     th = np.linalg.norm(w)
     if th < 1e-12:
@@ -54,10 +56,9 @@ def rodrigues(w):
 
 #region TASK 1
 
-
 # src - массив исходных точек. (x, y)
 # dst - массив целевых точек. (u, v)
-def make_A(src: Iterable, dst: Iterable) -> np.ndarray:
+def make_A(src: arr_t, dst: arr_t) -> arr_t:
 	A = []
 	for (x, y), (u, v) in zip(src, dst):
 		# коэфициенты системы линейных уравнений  
@@ -66,26 +67,26 @@ def make_A(src: Iterable, dst: Iterable) -> np.ndarray:
 		A +=[[0, 0, 0, -x, -y, -1, v*x, v*y, v]]
 	return np.array(A, dtype=float)
 
-def dlt_homography(src, dst): 
+def dlt_homography(src: arr_t, dst: arr_t) -> arr_t: 
 	A = make_A(src, dst)
 	# решение системы уравнений и преобразование в матрицу 3 на 3
 	# берется последняя строка,
 	# именно там длина вектора -> 1
 	# а определитель -> 0
-	H: np.ndarray = (np.linalg.svd(A)[2][-1])
+	H: arr_t = (np.linalg.svd(A)[2][-1])
 	# print('len H = %f' % np.linalg.norm(H)) # len H = 1.000000
 	
 	H = H.reshape(3,3)	
 	# print('det H = %f' % np.linalg.det(H)) # det H = 0.000005
 	return H / H[2, 2]
 
-def apply_H(H, pts):
+def apply_H(H: arr_t, pts: arr_t) -> arr_t:
 	h = np.hstack([np.atleast_2d(pts), np.ones((len(np.atleast_2d(pts)), 1))])
+	# h = np.column_stack([pts, np.ones(len(pts))])
 	q = h @ H.T
 	return q[:, :2] / q[:, 2:3]
 
-
-def project_plane(M, R, t):
+def project_plane(M: arr_t, R: arr_t, t: arr_t) -> arr_t:
     X = np.hstack([M, np.zeros((len(M), 1))])
     Xc = X @ R.T + t
     uvw = Xc @ K.T
@@ -104,6 +105,7 @@ def task_1():
 
 	img = project_plane(M, R_true, t_true)
 	H = dlt_homography(M, img)
+	
 	print(f'{YELLOW}Матрица гомографии{CLS}')
 	print(H)
 
@@ -115,11 +117,67 @@ def task_1():
 	err_2 = np.abs(apply_H(H, M_many) - project_plane(M_many, R_true, t_true)).max()
 	print(f'на 50 точках маркера\t= {err_2:.3e}\t=> {check(is_zero(err_2, 9e-10))}')
 
-
 #endregion
 
+#region TASK 2
 
-def task_2(): pass
+# нормализация точек методом Хартли
+def normalize_pts(pts: arr_t) -> tuple[Any, Any]:
+	centroid = pts.mean(axis=0)
+	mean_dist = np.linalg.norm(pts - centroid, axis=1).mean()
+	s = np.sqrt(2.0) / mean_dist
+	# получено из формулы - img3.png
+	T = np.array([
+		[s, 0, -s * centroid[0]],
+		[0, s, -s * centroid[1]],
+		[0, 0, 1]
+	])
+	return (pts - centroid) * s, T
+
+def dlt_normalized(src: arr_t, dst: arr_t) -> arr_t:
+	src_n, T_src = normalize_pts(src)
+	dst_n, T_dst = normalize_pts(dst)
+	H_n = dlt_homography(src_n, dst_n)
+	H = np.linalg.inv(T_dst) @ H_n @ T_src
+	return H / H[2,2]
+
+
+def task_2():
+	M = np.array([[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]])
+	w_true = np.array([0.35, -0.55, 0.25])
+	R_true = rodrigues(w_true)
+	t_true = np.array([0.02, -0.01, 0.9])
+
+	img = project_plane(M, R_true, t_true)
+
+	cond_A = np.linalg.cond(make_A(M, img))
+	src_n, _ = normalize_pts(M)
+	dst_n, _ = normalize_pts(img)
+
+	cond_N = np.linalg.cond(make_A(src_n, dst_n))
+	
+	print(f'{YELLOW}Проверка обусловленности матрицы{CLS}')
+	print(f'Без нормализации\t{GREEN}{cond_A:.2f}{CLS}')
+	print(f'С нормализацией\t\t{GREEN}{cond_N:.2f}{CLS}')
+	print(f'Прирост равен\t\t{GREEN}{(cond_A / cond_N):.2f}{CLS}')
+	print(f'Проверка прироста в {GREEN}100{CLS} раз\t\t=> {check(cond_N < (cond_A / 100))}')
+	print(f'Проверка прироста с эталоном в {GREEN}23000{CLS}\t=> {check((cond_A / cond_N) >= 23000)}')
+
+	M_gauss = rng.uniform(-.1, .1, (30, 2))
+	img_gauss = project_plane(M_gauss, R_true, t_true)
+	res_raw, res_norm = [], []
+
+	for i in range(300):
+		n = img_gauss + rng.normal(0, 1.0, img_gauss.shape)
+		res_raw += [np.sqrt(np.mean((apply_H(dlt_homography(M_gauss, n), M_gauss) - img_gauss) ** 2))]
+		res_norm += [np.sqrt(np.mean((apply_H(dlt_normalized(M_gauss, n), M_gauss) - img_gauss) ** 2))]
+
+	print(f'\n{YELLOW}Проверка невязки с шумом в 1 пиксель{CLS}')
+	print(f'Без нормализации:\t{np.mean(res_raw):.3f}')
+	print(f'С нормализацией:\t{np.mean(res_norm):.3f}')
+
+#endif
+
 def task_3(): pass
 def task_4(): pass
 def task_5(): pass
