@@ -296,7 +296,7 @@ def ransac_homography(src: arr_t, dst: arr_t, thr: float = 3.0, iters: int = 200
 
 	if np.array(best_in).sum() >= 4:
 		best_H = dlt_normalized(src[best_in], dst[best_in])
-		
+
 	return np.array(best_H), np.array(best_in)
 
 def make_data(R_true, t_true, n=120, frac_out=0.4, noise=0.5, seed=1):
@@ -335,8 +335,7 @@ def task_5():
 		ep.append(np.sqrt(np.mean((apply_H(dlt_normalized(S2, D2), S2[m2]) - cl) ** 2)))
 		Hr, _ = ransac_homography(S2, D2, seed=int(fo * 100))
 		er.append(np.sqrt(np.mean((apply_H(Hr, S2[m2]) - cl) ** 2)))
-	print('доля выбросов 0 %% -> 70 %%: СКО с RANSAC от %.3f до %.3f пикс'
-		% (er[0], er[-1]))
+	print('доля выбросов 0 %% -> 70 %%: СКО с RANSAC от %.3f до %.3f пикс' % (er[0], er[-1]))
 
 	fig, ax = plt.subplots(figsize=(7.5, 4))
 	ax.semilogy(fracs * 100, ep, 'o-', label='обычный МНК')
@@ -350,7 +349,39 @@ def task_5():
 
 #endregion
 
-def task_6(): pass
+#region TASK 6
+
+def iter_count(e, s=4, p=0.99) -> int|float:
+	return np.log(1 - p) / np.log(1 - (1 - e)**s)
+
+def task_6():
+	M = np.array([[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]])
+	w_true = np.array([0.35, -0.55, 0.25])
+	R_true = rodrigues(w_true)
+	t_true = np.array([0.02, -0.01, 0.9])
+	img = project_plane(M, R_true, t_true)
+	H = dlt_homography(M, img)
+
+	s = 5
+	p = 0.99
+
+	print(f'теоретическое число итераций (s = {s}, p = {p})')
+	for e in (0.1, 0.3, 0.5, 0.7):
+		emp = []
+		for sd in range(40):
+			S3, D3, m3 = make_data(R_true, t_true, frac_out=e, seed=100 + sd)
+			cl3 = project_plane(S3[m3], R_true, t_true)
+			for it in (1, 2, 3, 5, 8, 12, 20, 35, 60, 100, 200, 400, 900, 2000):
+				Hh, _ = ransac_homography(S3, D3, iters=it, seed=sd)
+				if np.sqrt(np.mean((apply_H(Hh, S3[m3]) - cl3) ** 2)) < 1.0:
+					emp += [it]
+					break
+			else:
+				emp += [2000]
+
+		print('доля выбросов %2.0f %%: теория %6.0f, эксперимент (медиана) %5.0f' % (e * 100, iter_count(e, s, p), np.median(emp)))
+
+#endregion
 
 LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6]
 
