@@ -106,11 +106,11 @@ def task_1():
 	img = project_plane(M, R_true, t_true)
 	H = dlt_homography(M, img)
 	
-	print(f'{YELLOW}Матрица гомографии{CLS}')
+	print(yellow('Матрица гомографии'))
 	print(H)
 
 	err_1 = np.abs(apply_H(H, M) - img).max()
-	print(f'\n{YELLOW}Проверка невязки{CLS}')
+	print(yellow('Проверка невязки'))
 	print(f'на 4 опорных точках\t= {err_1:.3e}\t=> {check(is_zero(err_1, 9e-10))}')
 
 	M_many = rng.uniform(-.1, .1, (50,2))
@@ -156,7 +156,7 @@ def task_2():
 
 	cond_N = np.linalg.cond(make_A(src_n, dst_n))
 	
-	print(f'{YELLOW}Проверка обусловленности матрицы{CLS}')
+	print(yellow('Проверка обусловленности матрицы'))
 	print(f'Без нормализации\t{GREEN}{cond_A:.2f}{CLS}')
 	print(f'С нормализацией\t\t{GREEN}{cond_N:.2f}{CLS}')
 	print(f'Прирост равен\t\t{GREEN}{(cond_A / cond_N):.2f}{CLS}')
@@ -172,13 +172,63 @@ def task_2():
 		res_raw += [np.sqrt(np.mean((apply_H(dlt_homography(M_gauss, n), M_gauss) - img_gauss) ** 2))]
 		res_norm += [np.sqrt(np.mean((apply_H(dlt_normalized(M_gauss, n), M_gauss) - img_gauss) ** 2))]
 
-	print(f'\n{YELLOW}Проверка невязки с шумом в 1 пиксель{CLS}')
-	print(f'Без нормализации:\t{np.mean(res_raw):.3f}')
-	print(f'С нормализацией:\t{np.mean(res_norm):.3f}')
+	print(yellow('\nПроверка невязки с шумом в 1 пиксель'))
+	print(f'Без нормализации:\t{GREEN}{np.mean(res_raw):.3f}{CLS}')
+	print(f'С нормализацией:\t{GREEN}{np.mean(res_norm):.3f}{CLS}')
 
 #endif
 
-def task_3(): pass
+#region TASK 3
+
+def pose_from_homography(H: arr_t, K: arr_t) -> tuple[arr_t, arr_t]:
+	K_inv = np.linalg.inv(K)
+	h1, h2, h3 = (K_inv @ H).T
+	lmd = 1. / np.linalg.norm(h1)
+	r1 = lmd * h1
+	r2 = lmd * h2
+	t = lmd * h3
+	if t[2] < 0:
+		r1, r2, t = -r1, -r2, -t
+	R = np.column_stack([r1, r2, np.cross(r1, r2)])
+	U, _, Vt = np.linalg.svd(R)
+	return U @ Vt, t
+
+def task_3():
+	M = np.array([[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]])
+	w_true = np.array([0.35, -0.55, 0.25])
+	R_true = rodrigues(w_true)
+	t_true = np.array([0.02, -0.01, 0.9])
+	img = project_plane(M, R_true, t_true)
+	H = dlt_homography(M, img)
+
+	R, t = pose_from_homography(H, K)
+	R_err: float = np.degrees(np.arccos(np.clip((np.trace(R.T @ R_true) - 1) / 2, -1, 1)))
+	t_err: float = float(np.linalg.norm(t - t_true))
+	print(yellow('Проверка ошибок ориентации'))
+	print(f'Вращение\t{GREEN}{R_err:.4e}{CLS}\t=> {check(R_err < 1e-4)}')
+	print(f'Положение\t{GREEN}{t_err:.4e}{CLS}\t=> {check(t_err < 1e-8)}')
+
+	cube = np.array([[x, y, z] for x in (-.06, .06) for y in (-.06, .06) for z in (0, -.12)])
+	edges = [(i, j) for i in range(8) for j in range(i + 1, 8)
+			if np.sum(np.abs(cube[i] - cube[j]) > 1e-9) == 1]
+
+	Xc = cube @ R.T + t
+	uv = (Xc @ K.T)[:, :2] / (Xc @K.T)[:, 2:3]
+
+	fig, ax = plt.subplots(figsize=(6.4, 3.6))
+	ax.plot(*np.vstack([img, img[0]]).T, color='#E08A2E', lw=2.2, label='маркер')
+	for i, j in edges:
+		ax.plot(*zip(uv[i], uv[j]), color='#1F2733', lw=1.4)
+	ax.set_xlim(0, 1280)
+	ax.set_ylim(720, 0)
+	ax.set_aspect('equal')
+	ax.legend()
+	plt.tight_layout()
+	plt.show()
+	print('Виртуальный куб наложен, рёбер %d' % len(edges))	
+
+#endregion
+
 def task_4(): pass
 def task_5(): pass
 def task_6(): pass
