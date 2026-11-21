@@ -229,12 +229,58 @@ def task_3():
 
 #endregion
 
-def task_4(): pass
+#region TASK 4
+
+def reproject(xi, X):
+    R, t = rodrigues(xi[:3]), xi[3:]
+    Xc = X @ R.T + t
+    uvw = Xc @ K.T
+    return uvw[:, :2] / uvw[:, 2:3]
+
+def pnp_gauss_newton(X, uv, xi0, iters=30, tol=1e-14):
+    xi = xi0.astype(float).copy()
+    hist = []
+    for _ in range(iters):
+        r = (reproject(xi, X) - uv).ravel()
+        hist.append(np.sqrt(np.mean(r ** 2)))
+        J = np.zeros((len(r), 6))
+        for k in range(6):
+            e = np.zeros(6); e[k] = 1e-7
+            J[:, k] = ((reproject(xi + e, X) - reproject(xi - e, X)).ravel()) / 2e-7
+        d = np.linalg.lstsq(J, -r, rcond=None)[0]
+        xi = xi + d
+        if np.linalg.norm(d) < tol:
+            break
+    hist.append(np.sqrt(np.mean((reproject(xi, X) - uv).ravel() ** 2)))
+    return xi, hist
+
+def task_4():
+	M = np.array([[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]])
+	w_true = np.array([0.35, -0.55, 0.25])
+	R_true = rodrigues(w_true)
+	t_true = np.array([0.02, -0.01, 0.9])
+	img = project_plane(M, R_true, t_true)
+	H = dlt_homography(M, img)
+
+	Xw = rng.uniform([-0.12, -0.12, -0.05], [0.12, 0.12, 0.05], (40, 3))
+	obs = reproject(np.r_[w_true, t_true], Xw)
+
+	xi0 = np.r_[w_true + 0.25, t_true + [0.05, 0.05, 0.08]]
+	xi, hist = pnp_gauss_newton(Xw, obs, xi0)
+	print('итераций %d, невязка %.3e -> %.3e пикс'
+		% (len(hist) - 1, hist[0], hist[-1]))
+	print('ошибка ориентации %.2e град, положения %.2e м'
+		% (np.degrees(np.arccos(np.clip(
+			(np.trace(rodrigues(xi[:3]).T @ R_true) - 1) / 2, -1, 1))),
+			np.linalg.norm(xi[3:] - t_true)))
+	assert hist[-1] < 1e-9
+
+#endregion
+
 def task_5(): pass
 def task_6(): pass
-def task_7(): pass
 
-LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6, task_7]
+LAB_TASKS = [task_1, task_2, task_3, task_4, task_5, task_6]
 
 # int main(int argc, char** argv) ;P
 if __name__ == '__main__':
